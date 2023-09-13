@@ -9,7 +9,7 @@ RUN docker-php-ext-install pdo_mysql
 WORKDIR /SummaL4Deployment
 COPY . /SummaL4Deployment
 
-RUN composer install
+RUN composer update
 
 EXPOSE 8000
 CMD php artisan serve --host=0.0.0.0 --port=8000
