@@ -64,6 +64,6 @@ jobs:
         with:
           context: "{{defaultContext}}"
           push: true
-          repository: SummaL4Deployment
+          repository: 'SummaL4Deployment'
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
