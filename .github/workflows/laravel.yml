@@ -10,7 +10,7 @@ env:
   # Use docker.io for Docker Hub if empty
   REGISTRY: docker.io
   # github.repository as <account>/<repo>
-  IMAGE_NAME: ${{ ps220812/SummaL4Deployment }}
+  IMAGE_NAME: ${{ 'ps220812/SummaL4Deployment' }}
 
 jobs:  
   image-build:
