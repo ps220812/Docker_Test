@@ -36,14 +36,14 @@ jobs:
         mkdir -p database
         touch database/database.sqlite
 
-  build-image:
+	Image-build:
 	
-    runs-on: ubuntu-latest
+		runs-on: ubuntu-latest
 		
 		steps:
 		- uses: actions/checkout@v3
-		- name: Build docker-image
-	  run: docker-compose build --no-cache --force-rm
+ 		- name: Build the docker image
+		run: docker-compose build --no-cache --force-rm
 	
  	test:
   	
