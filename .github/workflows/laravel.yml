@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [ "main" ]
 
+env:
+  # Use docker.io for Docker Hub if empty
+  REGISTRY: docker.io
+  # github.repository as <account>/<repo>
+  IMAGE_NAME: ${{ github.repository }}
+
+
 jobs:
   laravel-tests:
 
@@ -28,4 +35,145 @@ jobs:
       run: |
         mkdir -p database
         touch database/database.sqlite
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+
+    steps:
+
+uses: actions/checkout@v3
+name: Build the Docker image
+  run: docker-compose build --no-cache --force-rm
+test:
+  runs-on: ubuntu-latest
+  steps:
+uses: actions/checkout@v2
+name: Test the Docker image
+  run: docker-compose up -d
+push_to_registry:
+  name: Push Docker image to Docker Hub
+  runs-on: ubuntu-latest
+  steps:
+name: Check out the repo
+    uses: actions/checkout@v3
+
+
+name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+
+name: Log in to Docker Hub
+      uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+
+name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+
+name: Build and push Docker image
+      uses: docker/build-push-action@v2
+      with:
+        context: "{{defaultContext}}"
+        push: true
+        repository: docker_test
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+docker-compose.yml
+version: '3'
+services:
+  app:
+    build:
+      context: ./
+    volumes:
+
+.:/var/www/html
+.env.dev:/var/www/html/.env
+ports:
+"8080:80"
+environment:
+APP_ENV=local
+APP_DEBUG=true
+networks:
+laravel
+depends_on:
+mysql
+mysql:
+    image: 'mysql/mysql-server:8.0'
+    environment:
+      MYSQL_ROOT_HOST: "%"
+      MYSQL_ROOT_PASSWORD: "root"
+      MYSQL_USER: "laravel"
+      MYSQL_PASSWORD: "FhgVoFuOrWspc3TgBIA2K4dZGuJTPwSYBoLnNckcaxy"
+      MYSQL_DATABASE: "laravel"
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+    ports:
+3906:3306
+  volumes:
+'mysql8:/var/lib/mysql'
+'./db/init.sql:/docker-entrypoint-initdb.d/01init.sql'
+networks:
+laravel
+networks:
+    laravel:
+        driver: bridge
+volumes:
+    mysql8:
+        driver: local
+dockerfile
+FROM composer:2.4 as build
+COPY . /app/
+FROM php:8.1-cli
+
+FROM php:8.1-apache-buster as dev
+RUN apt-get update -y && apt-get install -y libmcrypt-dev
+
+ENV APP_ENV=dev
+ENV APP_DEBUG=true
+ENV COMPOSER_ALLOW_SUPERUSER=1
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+RUN docker-php-ext-install pdo mbstring
+
+RUN apt-get update && apt-get install -y zip
+RUN docker-php-ext-install pdo pdo_mysql
+WORKDIR /app
+COPY . /app
+
+COPY . /var/www/html/
+COPY --from=build /usr/bin/composer /usr/bin/composer
+RUN composer install --prefer-dist --no-interaction
+RUN composer install
+
+RUN php artisan config:cache && \
+    php artisan route:cache && \
+    chmod 777 -R /var/www/html/storage/ && \
+    chown -R www-data:www-data /var/www/ && \
+    a2enmod rewrite
+
+FROM php:8.1-apache-buster as production
+
+ENV APP_ENV=production
+ENV APP_DEBUG=false
+
+RUN docker-php-ext-configure opcache --enable-opcache && \
+    docker-php-ext-install pdo pdo_mysql
+
+
+COPY --from=build /app /var/www/html
+EXPOSE 8000
+CMD php artisan serve --host=0.0.0.0 --port=8000
+
+COPY --from=build /app /var/www/html
+EXPOSE 8000
+CMD php artisan serve --host=0.0.0.0 --port=8000
 
